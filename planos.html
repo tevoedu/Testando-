@@ -1016,38 +1016,6 @@
         </div>
     </div>
 
-    <!-- Importar Dados Overlay -->
-    <div class="overlay" id="importOverlay">
-        <div class="overlay-content">
-            <button class="close-overlay" id="closeImportOverlay">
-                <i class="fas fa-times"></i>
-            </button>
-            <h2 class="section-title">
-                <i class="fas fa-file-import"></i>
-                Importar Dados
-            </h2>
-            <div class="card">
-                <div class="form-group">
-                    <p>Selecione o arquivo de dados exportado anteriormente:</p>
-                    <input type="file" id="importFile" accept=".json" class="form-input">
-                </div>
-                <div class="form-group">
-                    <div class="form-checkbox-label">
-                        <input type="checkbox" id="importOverwrite" checked>
-                        <label for="importOverwrite">Substituir ciclo ativo atual</label>
-                    </div>
-                    <small class="form-text">Se desmarcado, o ciclo importado será adicionado à lista de ciclos sem alterar o ciclo ativo.</small>
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-primary" id="confirmImportBtn" style="width: 100%;">
-                        <i class="fas fa-file-import"></i>
-                        Importar Dados
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Toast Notification -->
     <div class="toast" id="toast">
         <i class="fas fa-check-circle"></i>
@@ -1107,13 +1075,6 @@
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
         const themeToggle = document.getElementById('themeToggle');
-        
-        // Elementos da função de importação (NOVOS)
-        const importOverlay = document.getElementById('importOverlay');
-        const importFile = document.getElementById('importFile');
-        const importOverwrite = document.getElementById('importOverwrite');
-        const confirmImportBtn = document.getElementById('confirmImportBtn');
-        const closeImportOverlay = document.getElementById('closeImportOverlay');
 
         // ======================
         // Inicialização
@@ -1291,9 +1252,6 @@
                         <button class="btn btn-primary" id="exportCycleBtn">
                             <i class="fas fa-file-export"></i> Exportar
                         </button>
-                        <button class="btn btn-primary" id="importCycleBtn">
-                            <i class="fas fa-file-import"></i> Importar
-                        </button>
                     </div>
                 `;
                 
@@ -1304,7 +1262,6 @@
                 document.getElementById('editCycleBtn')?.addEventListener('click', () => openCycleForm(activeCycle));
                 document.getElementById('deleteCycleBtn')?.addEventListener('click', deleteActiveCycle);
                 document.getElementById('exportCycleBtn')?.addEventListener('click', exportCycle);
-                document.getElementById('importCycleBtn')?.addEventListener('click', openImportOverlay);
                 document.getElementById('completeSubjectBtn')?.addEventListener('click', toggleSubjectCompletion);
             } else {
                 dashboardCard.innerHTML = `
@@ -1314,16 +1271,8 @@
                         </div>
                         <h3>Nenhum ciclo ativo</h3>
                         <p>Crie um novo ciclo de estudos para começar</p>
-                        <div class="cycle-actions" style="margin-top: 20px;">
-                            <button class="btn btn-primary" id="importCycleBtn">
-                                <i class="fas fa-file-import"></i> Importar Dados
-                            </button>
-                        </div>
                     </div>
                 `;
-                
-                // Adicionar evento ao botão de importação na tela sem ciclo ativo
-                document.getElementById('importCycleBtn')?.addEventListener('click', openImportOverlay);
             }
         }
         
@@ -1820,143 +1769,6 @@
         }
 
         // ======================
-        // FUNÇÃO DE IMPORTAR DADOS (NOVA FUNÇÃO ADICIONADA)
-        // ======================
-        
-        // Abrir o overlay de importação
-        function openImportOverlay() {
-            importOverlay.classList.add('active');
-            importFile.value = ''; // Limpar arquivo selecionado
-        }
-        
-        // Fechar o overlay de importação
-        function closeImportOverlay() {
-            importOverlay.classList.remove('active');
-        }
-        
-        // Processar a importação de dados
-        function importData() {
-            const file = importFile.files[0];
-            
-            if (!file) {
-                showToast('Por favor, selecione um arquivo para importar', 'error');
-                return;
-            }
-            
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Validar estrutura básica do arquivo
-                    if (!importedData.nome || !importedData.dias || !Array.isArray(importedData.dias)) {
-                        showToast('Arquivo inválido. Verifique se é um arquivo de exportação do StudyFlow.', 'error');
-                        return;
-                    }
-                    
-                    // Confirmar importação se houver ciclo ativo
-                    if (activeCycle && importOverwrite.checked) {
-                        if (!confirm('Isso substituirá seu ciclo ativo atual. Deseja continuar?')) {
-                            return;
-                        }
-                    }
-                    
-                    // Processar dados importados
-                    processImportedData(importedData);
-                    
-                } catch (error) {
-                    console.error('Erro ao processar arquivo:', error);
-                    showToast('Erro ao processar arquivo. Verifique se é um arquivo JSON válido.', 'error');
-                }
-            };
-            
-            reader.onerror = function() {
-                showToast('Erro ao ler o arquivo. Tente novamente.', 'error');
-            };
-            
-            reader.readAsText(file);
-        }
-        
-        // Processar dados importados e converter para estrutura do sistema
-        function processImportedData(importedData) {
-            // Extrair matérias únicas das atividades
-            const uniqueSubjects = extractUniqueSubjects(importedData.dias);
-            
-            // Criar novo ciclo com dados importados
-            const newCycle = {
-                id: Date.now().toString(),
-                name: `${importedData.nome} (Importado)`,
-                subjects: uniqueSubjects,
-                revisionDays: calculateRevisionDays(importedData.dias),
-                simulatedDays: calculateSimulatedDays(importedData.dias),
-                generatedCycle: importedData.dias.map(dia => dia.atividade),
-                totalDays: importedData.dias.length,
-                createdAt: new Date().toISOString(),
-                currentDay: 0,
-                completedSubjects: importedData.dias.reduce((acc, dia, index) => {
-                    if (dia.concluido) {
-                        acc[index] = true;
-                    }
-                    return acc;
-                }, {}),
-                completedCycles: importedData.ciclosCompletos || 0
-            };
-            
-            // Adicionar à lista de ciclos
-            allCycles.push(newCycle);
-            
-            // Definir como ciclo ativo se solicitado
-            if (importOverwrite.checked) {
-                activeCycle = newCycle;
-            }
-            
-            // Salvar dados
-            saveData();
-            
-            // Atualizar UI
-            updateUI();
-            
-            // Fechar overlay
-            closeImportOverlay();
-            
-            // Mostrar mensagem de sucesso
-            showToast('Dados importados com sucesso!');
-        }
-        
-        // Extrair matérias únicas da lista de dias
-        function extractUniqueSubjects(dias) {
-            const subjectsMap = {};
-            
-            dias.forEach(dia => {
-                const atividade = dia.atividade;
-                
-                // Ignorar revisões e simulados
-                if (!atividade.startsWith('Revisão') && !atividade.startsWith('Simulado')) {
-                    if (!subjectsMap[atividade]) {
-                        subjectsMap[atividade] = {
-                            name: atividade,
-                            weight: 1.5, // Valor padrão
-                            importance: 1.5 // Valor padrão
-                        };
-                    }
-                }
-            });
-            
-            return Object.values(subjectsMap);
-        }
-        
-        // Calcular quantidade de dias de revisão
-        function calculateRevisionDays(dias) {
-            return dias.filter(dia => dia.atividade.startsWith('Revisão')).length;
-        }
-        
-        // Calcular quantidade de dias de simulado
-        function calculateSimulatedDays(dias) {
-            return dias.filter(dia => dia.atividade.startsWith('Simulado')).length;
-        }
-
-        // ======================
         // Funções Auxiliares
         // ======================
         function showToast(message, type = 'success') {
@@ -2066,10 +1878,6 @@
                     deleteCycle(cycleId);
                 }
             });
-            
-            // Eventos da função de importação (NOVOS)
-            closeImportOverlay.addEventListener('click', closeImportOverlay);
-            confirmImportBtn.addEventListener('click', importData);
         }
     </script>
 </body>
