@@ -1763,6 +1763,17 @@
         
         <div class="voice-command-item">
           <div class="voice-command-icon">
+            <i class="fas fa-microphone-alt"></i>
+          </div>
+          <div class="voice-command-content">
+            <div class="voice-command-title">Registrar atividades por voz</div>
+            <div class="voice-command-description">Registrar atividades usando comandos de voz</div>
+            <div class="voice-command-example">Exemplo: "Registrar atividades por voz"</div>
+          </div>
+        </div>
+        
+        <div class="voice-command-item">
+          <div class="voice-command-icon">
             <i class="fas fa-history"></i>
           </div>
           <div class="voice-command-content">
@@ -1896,11 +1907,7 @@
         <h3><i class="fas fa-plus-circle"></i> Registrar Atividades</h3>
         <button class="close-modal" id="closeRegisterModal">&times;</button>
       </div>
-      <!-- NOVO: Botão de microfone para registro por voz -->
-      <button class="modal-microphone-btn" id="registerModalMicrophone">
-        <i class="fas fa-microphone"></i>
-      </button>
-      <div class="modal-microphone-indicator" id="registerModalIndicator">Ouvindo...</div>
+      <!-- BOTÃO DE MICROFONE REMOVIDO CONFORME SOLICITADO -->
       <div class="modal-body" id="registerModalBody">
         <!-- Conteúdo dinâmico será inserido aqui -->
       </div>
@@ -1918,11 +1925,7 @@
         <h3><i class="fas fa-history"></i> Registrar Atividades de Ontem</h3>
         <button class="close-modal" id="closeYesterdayModal">&times;</button>
       </div>
-      <!-- NOVO: Botão de microfone para registro por voz -->
-      <button class="modal-microphone-btn" id="yesterdayModalMicrophone">
-        <i class="fas fa-microphone"></i>
-      </button>
-      <div class="modal-microphone-indicator" id="yesterdayModalIndicator">Ouvindo...</div>
+      <!-- BOTÃO DE MICROFONE REMOVIDO CONFORME SOLICITADO -->
       <div class="modal-body" id="yesterdayModalBody">
         <!-- Conteúdo dinâmico será inserido aqui -->
       </div>
@@ -2248,6 +2251,8 @@
         // Processar comandos específicos
         if (lowerTranscript.includes('resumo') || lowerTranscript.includes('tarefas') || lowerTranscript.includes('como estou')) {
           this.showDailySummary();
+        } else if (lowerTranscript.includes('registrar atividades por voz') || lowerTranscript.includes('registrar por voz')) {
+          this.startVoiceRegistration();
         } else if (lowerTranscript.includes('registrar atividade') || lowerTranscript.includes('adicionar atividade')) {
           this.openRegisterModal();
         } else if (lowerTranscript.includes('registrar atividades de ontem') || lowerTranscript.includes('atividades de ontem')) {
@@ -2280,140 +2285,174 @@
         }
       }
       
+      // NOVO: Iniciar registro por voz
+      startVoiceRegistration() {
+        if (this.recognition && !this.isListening) {
+          this.voiceRegistrationActive = true;
+          this.showVoiceFeedback("Diga as atividades que você realizou. Exemplo: 'Divisão proporcional, 20 questões feitas, 2 erradas, 30 minutos'");
+          
+          try {
+            this.recognition.start();
+          } catch (error) {
+            console.error('Erro ao iniciar reconhecimento:', error);
+            this.showVoiceFeedback('Erro ao iniciar microfone');
+          }
+        }
+      }
+      
       // NOVO: Processar comandos de registro automático
       processVoiceRegistration(transcript, lowerTranscript) {
-        // Verificar se é um comando para ativar uma atividade
-        if (lowerTranscript.includes('ativar') || lowerTranscript.includes('habilitar')) {
-          this.activateTaskByVoice(transcript, lowerTranscript);
-        }
-        // Verificar se é um comando para preencher campos
-        else if (lowerTranscript.includes('preencher') || lowerTranscript.includes('definir') || 
-                 lowerTranscript.includes('questões') || lowerTranscript.includes('tempo') || 
-                 lowerTranscript.includes('conteúdo') || lowerTranscript.includes('página')) {
-          this.fillFieldByVoice(transcript, lowerTranscript);
-        }
-        // Verificar se é um comando para salvar
-        else if (lowerTranscript.includes('salvar') || lowerTranscript.includes('finalizar')) {
-          this.saveByVoice();
-        }
-        // Comando não reconhecido no contexto de registro
-        else {
-          this.showVoiceFeedback('Comando não reconhecido no registro. Tente "ativar [atividade]", "preencher [campo]" ou "salvar".');
-        }
-      }
-      
-      // NOVO: Ativar tarefa por voz
-      activateTaskByVoice(transcript, lowerTranscript) {
-        const taskCards = document.querySelectorAll('.task-card');
-        let activated = false;
+        // Parar o reconhecimento após processar o comando
+        this.stopVoiceRecognition();
+        this.voiceRegistrationActive = false;
         
-        taskCards.forEach(card => {
-          const taskTitle = card.querySelector('.task-title').textContent.toLowerCase();
-          const taskDescription = card.querySelector('.task-description').textContent.toLowerCase();
-          
-          // Verificar se o comando corresponde a esta tarefa
-          if (lowerTranscript.includes(taskTitle.toLowerCase()) || 
-              (taskDescription && lowerTranscript.includes(taskDescription.toLowerCase()))) {
-            
-            // Ativar a tarefa
-            if (card.classList.contains('disabled')) {
-              this.activateTask(card.querySelector('.activate-btn'));
-              activated = true;
-              this.showVoiceFeedback(`Ativada: ${card.querySelector('.task-title').textContent}`);
-            }
-          }
-        });
+        // Processar a fala para extrair atividades
+        const activities = this.parseVoiceActivities(transcript);
         
-        if (!activated) {
-          this.showVoiceFeedback('Não encontrei uma atividade correspondente ao seu comando.');
-        }
-      }
-      
-      // NOVO: Preencher campo por voz
-      fillFieldByVoice(transcript, lowerTranscript) {
-        // Obter todos os inputs ativos
-        const activeInputs = document.querySelectorAll('.task-card.active input:not([disabled])');
-        let filled = false;
-        
-        activeInputs.forEach(input => {
-          const inputId = input.id;
-          let fieldType = '';
-          let fieldSubject = '';
-          
-          // Determinar o tipo de campo e assunto
-          if (inputId.includes('questoes-feitas')) {
-            fieldType = 'feitas';
-            fieldSubject = inputId.replace('questoes-feitas-', '');
-          } else if (inputId.includes('questoes-erradas')) {
-            fieldType = 'erradas';
-            fieldSubject = inputId.replace('questoes-erradas-', '');
-          } else if (inputId.includes('questoes-tempo')) {
-            fieldType = 'tempo';
-            fieldSubject = inputId.replace('questoes-tempo-', '');
-          } else if (inputId.includes('anki-tempo')) {
-            fieldType = 'tempo';
-            fieldSubject = inputId.replace('anki-tempo-', '');
-          } else if (inputId.includes('anki-cards')) {
-            fieldType = 'cards';
-            fieldSubject = inputId.replace('anki-cards-', '');
-          } else if (inputId.includes('teoria-conteudo')) {
-            fieldType = 'conteúdo';
-            fieldSubject = inputId.replace('teoria-conteudo-', '');
-          } else if (inputId.includes('teoria-pagina')) {
-            fieldType = 'página';
-            fieldSubject = inputId.replace('teoria-pagina-', '');
-          } else if (inputId.includes('teoria-tempo')) {
-            fieldType = 'tempo';
-            fieldSubject = inputId.replace('teoria-tempo-', '');
-          }
-          
-          // Verificar se o comando corresponde a este campo
-          if (fieldSubject && lowerTranscript.includes(fieldSubject.toLowerCase()) && 
-              (lowerTranscript.includes(fieldType) || 
-               (fieldType === 'feitas' && lowerTranscript.includes('questões')) ||
-               (fieldType === 'erradas' && lowerTranscript.includes('erradas')) ||
-               (fieldType === 'cards' && lowerTranscript.includes('cards')))) {
-            
-            // Extrair número do comando de voz
-            const numbers = transcript.match(/\d+/g);
-            if (numbers && numbers.length > 0) {
-              const value = numbers[0];
-              input.value = value;
-              filled = true;
-              this.showVoiceFeedback(`${fieldSubject}: ${fieldType} definido como ${value}`);
-            } else if (fieldType === 'conteúdo') {
-              // Para conteúdo, usar o texto após "conteúdo"
-              const contentMatch = transcript.match(/conteúdo\s+(.+)/i);
-              if (contentMatch && contentMatch[1]) {
-                input.value = contentMatch[1].trim();
-                filled = true;
-                this.showVoiceFeedback(`${fieldSubject}: conteúdo definido`);
-              }
-            } else if (fieldType === 'página') {
-              // Para página, usar o texto após "página"
-              const pageMatch = transcript.match(/página\s+(.+)/i);
-              if (pageMatch && pageMatch[1]) {
-                input.value = pageMatch[1].trim();
-                filled = true;
-                this.showVoiceFeedback(`${fieldSubject}: página definida`);
-              }
-            }
-          }
-        });
-        
-        if (!filled) {
-          this.showVoiceFeedback('Não consegui identificar o valor para preencher. Tente algo como "20 questões feitas" ou "30 minutos".');
-        }
-      }
-      
-      // NOVO: Salvar por voz
-      saveByVoice() {
-        if (this.currentModal === 'register') {
-          document.getElementById('saveRegister').click();
-        } else if (this.currentModal === 'yesterday') {
-          document.getElementById('saveYesterday').click();
+        if (activities.length > 0) {
+          this.registerVoiceActivities(activities);
         } else {
-          this.showVoiceFeedback('Nenhum modal de registro está aberto para salvar.');
+          this.showVoiceFeedback("Não consegui identificar atividades na sua fala. Tente novamente.");
+          this.typeMessage("Não consegui identificar atividades na sua fala. Tente um formato como: 'Divisão proporcional, 20 questões feitas, 2 erradas, 30 minutos'", false);
+        }
+      }
+      
+      // NOVO: Função para analisar e extrair atividades da fala
+      parseVoiceActivities(transcript) {
+        const activities = [];
+        
+        // Dividir por possíveis separadores
+        const activityStrings = transcript.split(/ e | depois | em seguida |\. |, /i);
+        
+        activityStrings.forEach(activityStr => {
+          if (activityStr.trim()) {
+            const activity = this.parseSingleActivity(activityStr.trim());
+            if (activity) {
+              activities.push(activity);
+            }
+          }
+        });
+        
+        return activities;
+      }
+      
+      // NOVO: Função para analisar uma única atividade
+      parseSingleActivity(activityStr) {
+        const lowerStr = activityStr.toLowerCase();
+        
+        // Tentar identificar o tipo de atividade e extrair informações
+        let activity = null;
+        
+        // Padrão para questões: "assunto, X questões feitas, Y erradas, Z minutos"
+        const questaoMatch = activityStr.match(/(.+?),\s*(\d+)\s*questões?\s*feitas?,\s*(\d+)\s*erradas?,\s*(\d+)\s*minutos?/i);
+        if (questaoMatch) {
+          activity = {
+            type: 'questoes',
+            assunto: questaoMatch[1].trim(),
+            feitas: parseInt(questaoMatch[2]),
+            erradas: parseInt(questaoMatch[3]),
+            tempo: parseInt(questaoMatch[4])
+          };
+        }
+        
+        // Padrão para teoria: "matéria, progresso [conteúdo], X minutos"
+        const teoriaMatch = activityStr.match(/(.+?),\s*progresso\s*(.+?),\s*(\d+)\s*minutos?/i);
+        if (teoriaMatch && !activity) {
+          activity = {
+            type: 'teoria',
+            materia: teoriaMatch[1].trim(),
+            conteudo: teoriaMatch[2].trim(),
+            tempo: parseInt(teoriaMatch[3])
+          };
+        }
+        
+        // Padrão para ANKI: "assunto, X minutos, Y cards"
+        const ankiMatch = activityStr.match(/(.+?),\s*(\d+)\s*minutos?,\s*(\d+)\s*cards?/i);
+        if (ankiMatch && !activity) {
+          activity = {
+            type: 'anki',
+            deck: ankiMatch[1].trim(),
+            tempo: parseInt(ankiMatch[2]),
+            cards: parseInt(ankiMatch[3])
+          };
+        }
+        
+        // Padrão genérico para teoria: "matéria, X minutos"
+        const teoriaSimpleMatch = activityStr.match(/(.+?),\s*(\d+)\s*minutos?/i);
+        if (teoriaSimpleMatch && !activity) {
+          activity = {
+            type: 'teoria',
+            materia: teoriaSimpleMatch[1].trim(),
+            conteudo: 'Estudo por voz',
+            tempo: parseInt(teoriaSimpleMatch[2])
+          };
+        }
+        
+        return activity;
+      }
+      
+      // NOVO: Função para registrar atividades por voz
+      registerVoiceActivities(activities) {
+        const hoje = new Date();
+        const hojeStr = hoje.toISOString().split('T')[0];
+        
+        let savedCount = 0;
+        let totalTime = 0;
+        let activitiesData = {
+          questoes: [],
+          anki: [],
+          teoria: []
+        };
+        
+        activities.forEach(activity => {
+          try {
+            if (activity.type === 'questoes') {
+              this.saveQuestoes(activity.assunto, activity.feitas, activity.erradas, activity.tempo, hojeStr);
+              activitiesData.questoes.push({
+                assunto: activity.assunto,
+                feitas: activity.feitas,
+                erradas: activity.erradas,
+                tempo: activity.tempo
+              });
+              savedCount++;
+              totalTime += activity.tempo;
+            } else if (activity.type === 'teoria') {
+              this.saveTeoria(activity.materia, activity.conteudo, '', activity.tempo, hojeStr);
+              activitiesData.teoria.push({
+                materia: activity.materia,
+                conteudo: activity.conteudo,
+                tempo: activity.tempo
+              });
+              savedCount++;
+              totalTime += activity.tempo;
+            } else if (activity.type === 'anki') {
+              this.saveAnki(activity.deck, activity.tempo, activity.cards, hojeStr);
+              activitiesData.anki.push({
+                deck: activity.deck,
+                tempo: activity.tempo,
+                cards: activity.cards
+              });
+              savedCount++;
+              totalTime += activity.tempo;
+            }
+          } catch (error) {
+            console.error('Erro ao salvar atividade por voz:', error);
+          }
+        });
+        
+        // Salvar as atividades do dia
+        if (savedCount > 0) {
+          const dailyActivities = {
+            date: hojeStr,
+            activities: activitiesData
+          };
+          localStorage.setItem('dailyActivities', JSON.stringify(dailyActivities));
+          localStorage.setItem('lastRegisterDate', hojeStr);
+          
+          this.showRegistrationSummary(savedCount, totalTime, activitiesData);
+          this.showVoiceFeedback(`${savedCount} atividades registradas com sucesso!`);
+        } else {
+          this.showVoiceFeedback("Nenhuma atividade foi registrada.");
         }
       }
       
@@ -2519,20 +2558,10 @@
         document.getElementById('cancelRegister').addEventListener('click', () => this.closeRegisterModal());
         document.getElementById('saveRegister').addEventListener('click', () => this.saveSelectedTasks());
         
-        // NOVO: Microfone do modal de registro
-        document.getElementById('registerModalMicrophone').addEventListener('click', () => {
-          this.toggleModalMicrophone('register');
-        });
-        
         // NOVO: Modal de registro de ontem
         document.getElementById('closeYesterdayModal').addEventListener('click', () => this.closeYesterdayModal());
         document.getElementById('cancelYesterday').addEventListener('click', () => this.closeYesterdayModal());
         document.getElementById('saveYesterday').addEventListener('click', () => this.saveYesterdayTasks());
-        
-        // NOVO: Microfone do modal de ontem
-        document.getElementById('yesterdayModalMicrophone').addEventListener('click', () => {
-          this.toggleModalMicrophone('yesterday');
-        });
         
         // Modal de configuração
         document.getElementById('closeConfigModal').addEventListener('click', () => this.closeConfigModal());
@@ -2583,28 +2612,6 @@
         });
       }
       
-      // NOVO: Alternar microfone do modal
-      toggleModalMicrophone(modalType) {
-        const microphoneBtn = document.getElementById(`${modalType}ModalMicrophone`);
-        const indicator = document.getElementById(`${modalType}ModalIndicator`);
-        
-        if (this.voiceRegistrationActive && this.currentModal === modalType) {
-          // Desativar modo de registro por voz
-          this.voiceRegistrationActive = false;
-          this.currentModal = null;
-          microphoneBtn.classList.remove('listening');
-          indicator.classList.remove('show');
-          this.showVoiceFeedback('Registro por voz desativado');
-        } else {
-          // Ativar modo de registro por voz
-          this.voiceRegistrationActive = true;
-          this.currentModal = modalType;
-          microphoneBtn.classList.add('listening');
-          indicator.classList.add('show');
-          this.showVoiceFeedback('Registro por voz ativado. Diga "ativar [atividade]", "preencher [campo]" ou "salvar".');
-        }
-      }
-      
       showWelcomeMessage() {
         if (this.chatHistory.length === 0) {
           // Adicionar data atual
@@ -2629,6 +2636,10 @@
             </button>
             <button class="action-btn secondary" onclick="chatBot.openRegisterModal()">
               <i class="fas fa-plus-circle"></i> Registrar Atividade
+            </button>
+            <!-- NOVO BOTÃO: Registrar Atividades por Voz -->
+            <button class="action-btn info" onclick="chatBot.startVoiceRegistration()">
+              <i class="fas fa-microphone-alt"></i> Registrar atividades por voz
             </button>
             <!-- NOVO BOTÃO: Registrar Atividades do Dia Anterior -->
             <button class="action-btn info" onclick="chatBot.openYesterdayModal()">
@@ -2882,14 +2893,6 @@
       
       // NOVA FUNÇÃO: Fechar modal de ontem
       closeYesterdayModal() {
-        // Desativar modo de registro por voz se estiver ativo
-        if (this.voiceRegistrationActive && this.currentModal === 'yesterday') {
-          this.voiceRegistrationActive = false;
-          this.currentModal = null;
-          document.getElementById('yesterdayModalMicrophone').classList.remove('listening');
-          document.getElementById('yesterdayModalIndicator').classList.remove('show');
-        }
-        
         document.getElementById('yesterdayModal').style.display = 'none';
       }
       
@@ -3528,6 +3531,10 @@
             <div class="quick-actions"> 
               <button class="action-btn primary" onclick="chatBot.openRegisterModal()"> 
                 <i class="fas fa-plus-circle"></i> Registrar Atividades 
+              </button> 
+              <!-- NOVO BOTÃO: Registrar Atividades por Voz -->
+              <button class="action-btn info" onclick="chatBot.startVoiceRegistration()"> 
+                <i class="fas fa-microphone-alt"></i> Registrar atividades por voz 
               </button> 
               <!-- NOVO BOTÃO: Trocar Baralhos -->
               <button class="action-btn info" onclick="chatBot.trocarBaralhos()"> 
@@ -4927,14 +4934,6 @@
       }
       
       closeRegisterModal() { 
-        // Desativar modo de registro por voz se estiver ativo
-        if (this.voiceRegistrationActive && this.currentModal === 'register') {
-          this.voiceRegistrationActive = false;
-          this.currentModal = null;
-          document.getElementById('registerModalMicrophone').classList.remove('listening');
-          document.getElementById('registerModalIndicator').classList.remove('show');
-        }
-        
         document.getElementById('registerModal').style.display = 'none'; 
       } 
       
@@ -5230,6 +5229,13 @@
                   </div> 
                 </div> 
                 <div class="message-list-item"> 
+                  <div class="message-list-icon"><i class="fas fa-microphone-alt"></i></div> 
+                  <div class="message-list-content"> 
+                    <div class="message-list-title">Registrar atividades por voz</div> 
+                    <div class="message-list-description">Registrar atividades usando comandos de voz</div> 
+                  </div> 
+                </div> 
+                <div class="message-list-item"> 
                   <div class="message-list-icon"><i class="fas fa-history"></i></div> 
                   <div class="message-list-content"> 
                     <div class="message-list-title">Registrar atividades de ontem</div> 
@@ -5388,6 +5394,12 @@
                     <div class="message-list-title">Interagir por comandos de voz</div> 
                   </div> 
                 </div> 
+                <div class="message-list-item"> 
+                  <div class="message-list-icon"><i class="fas fa-check"></i></div> 
+                  <div class="message-list-content"> 
+                    <div class="message-list-title">Registrar atividades por voz</div> 
+                  </div> 
+                </div> 
               </div> 
             </div> 
           </div> 
@@ -5403,6 +5415,10 @@
             </button> 
             <button class="action-btn secondary" onclick="chatBot.openRegisterModal()"> 
               <i class="fas fa-plus-circle"></i> Registrar 
+            </button> 
+            <!-- NOVO BOTÃO: Registrar Atividades por Voz -->
+            <button class="action-btn info" onclick="chatBot.startVoiceRegistration()"> 
+              <i class="fas fa-microphone-alt"></i> Registrar atividades por voz 
             </button> 
             <!-- NOVO BOTÃO: Registrar Atividades de Ontem -->
             <button class="action-btn info" onclick="chatBot.openYesterdayModal()"> 
