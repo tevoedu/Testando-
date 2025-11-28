@@ -2439,15 +2439,13 @@
                 autoAddedForReview: false
             };
             
-            // Verificar se deve adicionar automaticamente à fila de revisão
-            if (!hasPendingReviews()) {
-                // Definir data de revisão para hoje
-                const today = getToday();
-                newTopic.nextReviewDate = today;
-                newTopic.autoAddedForReview = true;
-                
-                showToast('Novo assunto adicionado automaticamente à fila de revisão!');
-            }
+            // CORREÇÃO APLICADA AQUI:
+            // SEMPRE definir data de revisão para hoje quando um novo assunto é criado
+            const today = getToday();
+            newTopic.nextReviewDate = today;
+            newTopic.autoAddedForReview = true;
+            
+            showToast('Novo assunto adicionado automaticamente à fila de revisão!');
             
             // Adicionar o tópico à disciplina
             disciplines[disciplineIndex].assuntos.push(newTopic);
