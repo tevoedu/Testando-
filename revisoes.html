@@ -2439,15 +2439,15 @@
                 autoAddedForReview: false
             };
             
-            // CORREÇÃO APLICADA AQUI - URGÊNCIA MÁXIMA:
-            // Definir data de revisão para 30 dias ATRÁS para garantir que seja o MAIS atrasado
-            const today = getToday();
-            const thirtyDaysAgo = today - (30 * 24 * 60 * 60 * 1000); // 30 dias atrás em timestamp
-            
-            newTopic.nextReviewDate = thirtyDaysAgo;
-            newTopic.autoAddedForReview = true;
-            
-            showToast('Novo assunto criado com URGÊNCIA MÁXIMA! Aparecerá no topo das revisões.');
+           // CORREÇÃO APLICADA AQUI - URGÊNCIA MÁXIMA:
+// Definir data de revisão para 90 dias ATRÁS para garantir que seja o MAIS atrasado
+const today = getToday();
+const ninetyDaysAgo = today - (90 * 24 * 60 * 60 * 1000); // 90 dias atrás em timestamp
+
+newTopic.nextReviewDate = ninetyDaysAgo;
+newTopic.autoAddedForReview = true;
+
+showToast('Novo assunto criado com URGÊNCIA MÁXIMA! Aparecerá no topo das revisões.');
             
             // Adicionar o tópico à disciplina
             disciplines[disciplineIndex].assuntos.push(newTopic);
