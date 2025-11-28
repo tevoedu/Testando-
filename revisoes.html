@@ -1951,39 +1951,6 @@
         // ==================================================================
         // FIM DA NOVA FUNCIONALIDADE
         // ==================================================================
-        // FUNÇÃO PARA VERIFICAR SE HÁ REVISÕES PENDENTES
-        function hasPendingReviews() {
-            const today = getToday();
-            
-            for (const discipline of disciplines) {
-                if (!discipline.assuntos) continue;
-                
-                for (const topic of discipline.assuntos) {
-                    if (topic.suspended) continue;
-                    
-                    if (topic.nextReviewDate) {
-                        if (topic.nextReviewDate <= today) {
-                            return true;
-                        }
-                    }
-                    
-                    // Verificar se é método fixo e está há mais de 30 dias sem revisão
-                    if (topic.reviewMethod === 'fixed') {
-                        const lastReviewed = topic.lastReviewed;
-                        if (lastReviewed) {
-                            const diffTime = today - lastReviewed;
-                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                            
-                            if (diffDays > 30) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            return false;
-        }
         
         // Funções principais
         function renderDisciplines() {
@@ -2439,13 +2406,9 @@
                 autoAddedForReview: false
             };
             
-            // CORREÇÃO APLICADA AQUI:
-            // SEMPRE definir data de revisão para hoje quando um novo assunto é criado
-            const today = getToday();
-            newTopic.nextReviewDate = today;
-            newTopic.autoAddedForReview = true;
-            
-            showToast('Novo assunto adicionado automaticamente à fila de revisão!');
+            // CORREÇÃO APLICADA: Definir data de revisão para 0 (1/1/1970) para que seja o mais atrasado
+            newTopic.nextReviewDate = 0;
+            newTopic.autoAddedForReview = false;
             
             // Adicionar o tópico à disciplina
             disciplines[disciplineIndex].assuntos.push(newTopic);
